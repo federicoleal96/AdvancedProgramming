@@ -1,0 +1,37 @@
+The marking scheme is capped at 100%.
+
+Single-Thread Correctness [+50%]
++10%: I cannot open a transaction if the user does not appear in the initialization map.
+This is implemented in the openTransaction method, where we check if the user ID is in the hashMap. If not, we return an empty Optional.
++10%: I can always open a transaction if the user, on the other hand, appears on the initialization map.
+This is also implemented in the openTransaction method, where we return a new TransactionCommands instance if the user ID is in the hashMap.
+■ When no further operations are performed (pay/withdraw), the returned totalAmount reflects the amount on the Bank.
+This is implemented in the getTentativeTotalAmount method, where we return the sum of the initial amount and the total local operations.
++15%: After committing a transaction, the results provides the total changes into the account.
+This is implemented in the commit method, where we calculate the total amount by adding the initial amount and the total local operations, and return a new CommitResult instance with the successful operations, unsuccessful operations, and total amount.
+■ The returned commit information should contain relevant Operation of OperationType on the bank account (pay/withdrawal) before the commit.
+This is implemented in the commit method, where we create a new CommitResult instance with the successful operations, which include the pay and withdraw operations.
+■ After paying money into the account, the final total amount is the sum of the previous amount of money and the amount being paid, as retrieved through the CommitResult.
+This is implemented in the commit method, where we calculate the total amount by adding the initial amount and the total local operations.
+■ I cannot re-commit or abort a closed transaction (I shall return null rather than a CommitResult).
+This is implemented in the close method, where we call the commit method, and in the commit method, where we throw a RuntimeException if the transaction is already committed or aborted.
++15%: No overdraft is allowed.
+■ I can always withdraw 0.0 money from my account.
+This is implemented in the withdrawMoney method, where we check if the amount is greater than 0 and less than or equal to the tentative total amount.
+■ I can never withdraw an amount of money which is greater than the amount at my disposal.
+This is also implemented in the withdrawMoney method, where we check if the amount is greater than the tentative total amount.
+■ The commit should list all of the operations, thus including the attempt to overdraft.
+This is implemented in the commit method, where we create a new CommitResult instance with the successful operations, which include the pay and withdraw operations.
+■ The operation causing the overdraft shall not be considered as an unsuccessful operation, rather than one ignored within the transaction.
+This is implemented in the withdrawMoney method, where we return false if the amount is greater than the tentative total amount, but we still add the operation to the list of operations.
+Multi-Threaded Correctness [+50%]
++10%: A single user can open concurrent transactions.
+This is implemented using the ReentrantLock class, which allows multiple threads to access the same resource concurrently.
+■ As other concurrent transactions are not committed yet, each thread can only see the committed statues from their account.
+This is implemented using the ReentrantLock class, which ensures that only one thread can access the account at a time.
+■ Any user should be allowed to concurrently log in in its account (e.g., through different possible devices).
+This is implemented using the ReentrantLock class, which allows multiple threads to access the same resource concurrently.
+■ Under the assumption that user’s threads never abort, the final amount of the money in the bank account correspond to the overall total of pays and withdraws.
+This is implemented in the commit method, where we calculate the total amount by adding the initial amount and the total local operations.
++10%: Multiple users can open concurrent transactions. [Same requirements as above, plus the following:]
+This is implemented using the ReentrantLock class, which allows multiple threads
