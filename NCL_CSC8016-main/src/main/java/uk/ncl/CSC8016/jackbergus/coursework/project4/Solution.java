@@ -120,28 +120,22 @@ public class Solution extends BankFacade {
                     throw new RuntimeException("Transaction already committed or aborted");
                 }
                 lock.lock();
-                try {public CommitResult commit() {
-                    // +15%: After committing a transaction, the results provides the total changes into the account.
-                    // ■ The returned commit information should contain relevant Operation of OperationType
-                    // on the bank account (pay/withdrawal) before the commit.
-                    // ■ After paying money into the account, the final total amount is the sum of the previous
-                    // amount of money and the amount being paid, as retrieved through the CommitResult.
-                    if (isProcessCommitted || isProcessAborted) {
-                        throw new RuntimeException("Transaction already committed or aborted");
-                    }
-                    lock.lock();
-                    try {
-                        double totalAmount = initialAmount + totalLocalOperations;
-                        hashMap.put(userId, totalAmount);
-                        List<Operation> successfulOperations = new ArrayList<>(operations);
-                        List<Operation> ignoredOperation = new ArrayList<>();
-                        isProcessCommitted = true;
-                        return new CommitResult(successfulOperations, ignoredOperations, totalAmount);
-                    } finally {
-                        lock.unlock();
-                    }
-                }
+                try {
+                    double totalAmount = initialAmount + totalLocalOperations;
+                    hashMap.put(userId, totalAmount);
+                    List<Operation> successfulOperations = new ArrayList<>(operations);
+                    List<Operation> ignoredOperations = new ArrayList<>();
+                    isProcessCommitted = true;
 
+                    // Since unsuccessfulOperation in CommitResult is singular, we can only pass one operation
+                    // We will pass null if there are no ignored operations
+                    Operation unsuccessfulOperation = ignoredOperations.isEmpty()? null : ignoredOperations.get(0);
+
+                    return new CommitResult(successfulOperations, unsuccessfulOperation == null? new ArrayList<>() : java.util.Collections.singletonList(unsuccessfulOperation), totalAmount);
+                } finally {
+                    lock.unlock();
+                }
+            }
 
             @Override
             public void close() {
