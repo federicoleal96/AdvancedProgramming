@@ -42,6 +42,9 @@ public class Solution extends BankFacade {
             double initialAmount;
             // Allow for multiple operations for a single transaction command instance
             List<Operation> operations = new ArrayList<>();
+            List<Operation> successfulOperations = new ArrayList<>();
+            List<Operation> unsuccessfulOperations = new ArrayList<>();
+            List<Operation> ignoredOperations = new ArrayList<>();
 
             //Initialization block for the anonymous class. Set default values
             {
@@ -68,33 +71,41 @@ public class Solution extends BankFacade {
             // ■ I can never withdraw an amount of money which is greater than the amount at my disposal.
             @Override
             public boolean withdrawMoney(double amount) {
-
-                if (isProcessAborted || isProcessCommitted) {
-                    return false;
-                }
-                if (amount < 0 || amount > getTentativeTotalAmount()) {
-                    return false;
-                }
-                //
-                totalLocalOperations -= amount;
-                operations.add(Operation.Withdraw(amount, operations.size()));
-                return true;
-            }
-
-            //If can be done, creates operation in the local list and updates total local operations value with amount added
-            @Override
-            public boolean payMoneyToAccount(double amount) {
-                // +15%: No overdraft is allowed.
-                // ■ I can always withdraw 0.0 money from my account.
-                // ■ I can never withdraw an amount of money which is greater than the amount at my disposal.
                 if (isProcessAborted || isProcessCommitted) {
                     return false;
                 }
                 if (amount < 0) {
+                    // Add to unsuccessful operations
+                    operations.add(Operation.Withdraw(amount, operations.size()));
+                    unsuccessfulOperations.add(Operation.Withdraw(amount, operations.size()));
+                    return false;
+                }
+                if (amount > getTentativeTotalAmount()) {
+                    // Add to ignored operations
+                    operations.add(Operation.Withdraw(amount, operations.size()));
+                    ignoredOperations.add(Operation.Withdraw(amount, operations.size()));
+                    return false;
+                }
+                totalLocalOperations -= amount;
+                operations.add(Operation.Withdraw(amount, operations.size()));
+                successfulOperations.add(Operation.Withdraw(amount, operations.size()));
+                return true;
+            }
+
+            @Override
+            public boolean payMoneyToAccount(double amount) {
+                if (isProcessAborted || isProcessCommitted) {
+                    return false;
+                }
+                if (amount < 0) {
+                    // Add to unsuccessful operations
+                    operations.add(Operation.Pay(amount, operations.size()));
+                    unsuccessfulOperations.add(Operation.Pay(amount, operations.size()));
                     return false;
                 }
                 totalLocalOperations += amount;
                 operations.add(Operation.Pay(amount, operations.size()));
+                successfulOperations.add(Operation.Pay(amount, operations.size()));
                 return true;
             }
 
@@ -123,15 +134,9 @@ public class Solution extends BankFacade {
                 try {
                     double totalAmount = initialAmount + totalLocalOperations;
                     hashMap.put(userId, totalAmount);
-                    List<Operation> successfulOperations = new ArrayList<>(operations);
-                    List<Operation> ignoredOperations = new ArrayList<>();
                     isProcessCommitted = true;
 
-                    // Since unsuccessfulOperation in CommitResult is singular, we can only pass one operation
-                    // We will pass null if there are no ignored operations
-                    Operation unsuccessfulOperation = ignoredOperations.isEmpty()? null : ignoredOperations.get(0);
-
-                    return new CommitResult(successfulOperations, unsuccessfulOperation == null? new ArrayList<>() : java.util.Collections.singletonList(unsuccessfulOperation), totalAmount);
+                    return new ExtendedCommitResult(successfulOperations, unsuccessfulOperations, ignoredOperations, totalAmount);
                 } finally {
                     lock.unlock();
                 }
